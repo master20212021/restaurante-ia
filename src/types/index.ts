@@ -1,6 +1,8 @@
 export type EstadoPedido = 'pendiente' | 'confirmado' | 'en_preparacion' | 'listo' | 'entregado' | 'cancelado'
 export type TipoPedido = 'pickup' | 'delivery' | 'mesa'
 
+export const DEMO_RESTAURANTE_ID = '00000000-0000-0000-0000-000000000001'
+
 export interface Pedido {
   id: string
   restaurante_id: string

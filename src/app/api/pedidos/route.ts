@@ -5,7 +5,7 @@ import { EstadoPedido } from '@/types'
 // GET /api/pedidos — listar pedidos del día
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const restaurante_id = searchParams.get('restaurante_id') ?? 'demo'
+  const restaurante_id = searchParams.get('restaurante_id') ?? '00000000-0000-0000-0000-000000000001'
   const fecha = searchParams.get('fecha') ?? new Date().toISOString().split('T')[0]
 
   const { data, error } = await supabaseAdmin

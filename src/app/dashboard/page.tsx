@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const [cargando, setCargando] = useState(true)
 
   const cargarPedidos = useCallback(async () => {
-    const res = await fetch('/api/pedidos?restaurante_id=demo')
+    const res = await fetch('/api/pedidos?restaurante_id=00000000-0000-0000-0000-000000000001')
     const data = await res.json()
     setPedidos(data)
     setCargando(false)

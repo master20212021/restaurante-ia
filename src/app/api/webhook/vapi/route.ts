@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // Construir el pedido
     const nuevoPedido: Partial<Pedido> = {
-      restaurante_id: message.call?.metadata?.restaurante_id ?? 'demo',
+      restaurante_id: message.call?.metadata?.restaurante_id ?? '00000000-0000-0000-0000-000000000001',
       cliente_telefono: message.call?.customer?.number ?? 'desconocido',
       cliente_nombre: analisis.nombre_cliente,
       items: analisis.items ?? [],
