@@ -81,7 +81,7 @@ const assistantConfig = {
   firstMessage: '¡Buenas tardes! Le habla Sofía de La Taquería del Norte. ¿En qué le podemos ayudar hoy?',
   endCallMessage: 'Perfecto, su pedido quedó registrado. En breve le confirmamos. ¡Que tenga buen día!',
   maxDurationSeconds: 600, // 10 minutos máximo por llamada
-  backgroundSound: 'restaurant', // sonido de fondo de restaurante
+  backgroundSound: 'office', // off | office (valores válidos de Vapi)
   serverUrl: `${WEBHOOK_URL}/api/webhook/vapi`,
   serverUrlSecret: process.env.VAPI_WEBHOOK_SECRET || 'cambiar_esto_despues',
   analysisPlan: {
