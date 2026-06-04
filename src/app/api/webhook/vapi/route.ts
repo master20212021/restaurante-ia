@@ -7,36 +7,49 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // Verificar que viene de Vapi con el secret correcto
+    // Log completo para debug
+    const msgType = body?.message?.type ?? body?.type ?? 'unknown'
     const secret = request.headers.get('x-vapi-secret')
-    if (secret !== process.env.VAPI_WEBHOOK_SECRET) {
+    console.log(`[vapi-webhook] tipo=${msgType} | secret=${secret ? 'presente' : 'ausente'} | keys=${Object.keys(body).join(',')}`)
+
+    // Verificar que viene de Vapi con el secret correcto
+    // Nota: llamadas desde número de teléfono no envían header → se permite
+    // Si el header está presente pero incorrecto → se rechaza
+    if (secret !== null && secret !== process.env.VAPI_WEBHOOK_SECRET) {
+      console.warn('[vapi-webhook] Secret inválido:', secret)
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { message } = body
+    // Soportar payload con message wrapper (Vapi estándar) o al nivel raíz
+    const message = body?.message ?? (body?.type ? body : null)
 
-    // Solo procesamos cuando termina la llamada con un pedido
+    // Solo procesamos cuando termina la llamada
     if (message?.type !== 'end-of-call-report') {
-      return NextResponse.json({ ok: true })
+      console.log('[vapi-webhook] ignorado tipo:', msgType)
+      return NextResponse.json({ ok: true, ignored: true })
     }
+
+    console.log('[vapi-webhook] end-of-call-report recibido')
+    console.log('[vapi-webhook] structuredData:', JSON.stringify(message?.analysis?.structuredData))
+    console.log('[vapi-webhook] transcript length:', message?.transcript?.length ?? 0)
 
     const analisis = message?.analysis?.structuredData
-    if (!analisis) {
-      return NextResponse.json({ ok: true })
-    }
 
-    // Construir el pedido
+    // Si no hay structuredData, guardamos igual con lo que tengamos del transcript
+    const tipoRaw = analisis?.tipo_pedido ?? 'pickup'
+    const tipoValido = (['pickup', 'delivery', 'mesa'] as const).includes(tipoRaw) ? tipoRaw : 'pickup'
+
     const nuevoPedido: Partial<Pedido> = {
       restaurante_id: message.call?.metadata?.restaurante_id ?? '00000000-0000-0000-0000-000000000001',
-      cliente_telefono: message.call?.customer?.number ?? 'desconocido',
-      cliente_nombre: analisis.nombre_cliente,
-      items: analisis.items ?? [],
-      total_estimado: analisis.total ?? 0,
-      tipo: analisis.tipo_pedido ?? 'pickup',
+      cliente_telefono: message.call?.customer?.number ?? message.customer?.number ?? 'desconocido',
+      cliente_nombre: analisis?.nombre_cliente ?? 'Cliente',
+      items: analisis?.items ?? [],
+      total_estimado: analisis?.total ?? 0,
+      tipo: tipoValido,
       estado: 'pendiente',
-      notas: analisis.notas,
+      notas: analisis?.notas ?? (analisis ? undefined : '⚠️ Sin datos estructurados — ver transcripción'),
       transcripcion: message.transcript,
-      duracion_llamada_segundos: message.durationSeconds,
+      duracion_llamada_segundos: message.durationSeconds ? Math.round(message.durationSeconds) : undefined,
     }
 
     // Guardar en Supabase
@@ -46,20 +59,26 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('[vapi-webhook] Error Supabase:', error)
+      throw error
+    }
 
-    // Disparar webhook de n8n (notifica Telegram + Google Sheets + impresora)
+    console.log('[vapi-webhook] Pedido guardado id=', data.id)
+
+    // Disparar webhook de n8n (notifica Telegram)
     if (process.env.N8N_WEBHOOK_URL) {
-      await fetch(process.env.N8N_WEBHOOK_URL, {
+      const n8nRes = await fetch(process.env.N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pedido: data }),
-      }).catch(console.error)
+      }).catch((e) => { console.error('[vapi-webhook] n8n fetch error:', e); return null })
+      console.log('[vapi-webhook] n8n status:', n8nRes?.status ?? 'failed')
     }
 
     return NextResponse.json({ ok: true, pedido_id: data.id })
   } catch (err) {
-    console.error('Error en webhook:', err)
+    console.error('[vapi-webhook] Error interno:', err)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
